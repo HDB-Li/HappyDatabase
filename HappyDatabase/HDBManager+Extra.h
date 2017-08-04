@@ -74,12 +74,7 @@
  */
 - (id)queryObjectWithIdentify:(NSString *)identify table:(NSString *)tableName;
 
-/**
- * 查询表中所有的Object
- 
- @param tableName 表名
- */
-- (NSArray *)queryAllObjectsFromDefaultTable:(NSString *)tableName;
+
 
 @end
 

@@ -45,6 +45,9 @@ static HDBConfig *_instance = nil;
  * 设置数据存储路径,默认是Documents/HappyDatabase/
  */
 + (void)configPath:(NSString *)path {
+    if ([[NSFileManager defaultManager] fileExistsAtPath:path] == NO) {
+        [[NSFileManager defaultManager] createFileAtPath:path contents:nil attributes:nil];
+    }
     [HDBConfig defaultConfig].path = path;
 }
 
@@ -54,7 +57,11 @@ static HDBConfig *_instance = nil;
  * 内部初始化方法
  */
 - (void)__initial {
-    _path = [[[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0] stringByAppendingPathComponent:@"HappyDatabase"] stringByAppendingPathComponent:@"Database.sqlite"];
+    _path = [[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0] stringByAppendingPathComponent:@"HappyDatabase"];
+    BOOL isDirectory = NO;
+    if ([[NSFileManager defaultManager] fileExistsAtPath:_path isDirectory:&isDirectory] == NO) {
+        [[NSFileManager defaultManager] createDirectoryAtPath:_path withIntermediateDirectories:YES attributes:nil error:nil];
+    }
 }
 
 @end

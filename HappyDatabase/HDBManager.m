@@ -96,6 +96,7 @@ static HDBManager *_instance = nil;
         return NO;
     }
     if ([_storage storageModel:modelName primaryKey:primaryKey allowedKeys:allowedKeys ignoredKeys:ignoredKeys] == NO) {
+        HDBLog(@"storageModel info failed");
         return NO;
     }
     
@@ -206,6 +207,32 @@ static HDBManager *_instance = nil;
 }
 
 #pragma mark - Query
+/**
+ * 查询表中所有的Object
+ */
+- (NSArray *)queryAllObjectsFromTable:(NSString *)tableName {
+    if ([self __checkTableName:tableName] == NO) {
+        HDBLog(@"Query all objects failed, tableName is nil");
+        return nil;
+    }
+    
+    __block NSString *SQLite = [NSString stringWithFormat:QUERY_ALL_DEFAULT_OBJ,tableName];
+    __block NSMutableArray *objects = [[NSMutableArray alloc] init];
+    [_dbQueue inDatabase:^(FMDatabase *db) {
+        FMResultSet *set = [db executeQuery:SQLite withArgumentsInArray:nil];
+        while ([set next]) {
+            NSData *data = [set dataForColumn:HDB_kObjData];
+            if (data) {
+                id object = [NSKeyedUnarchiver unarchiveObjectWithData:data];
+                if (object) {
+                    [objects addObject:object];
+                }
+            }
+        }
+    }];
+    
+    return objects;
+}
 
 /**
  * 根据PrimaryValue查询一个模型,不存在则返回nil
@@ -235,10 +262,12 @@ static HDBManager *_instance = nil;
     }];
     
     NSMutableArray *arguments = [[NSMutableArray alloc] init];
+    NSMutableArray *argumentKeys = [[NSMutableArray alloc] init];
     for (NSString *key in keys) {
         [arguments addObject:parameters[key]];
+        [argumentKeys addObject:key];
     }
-    __block NSString *SQLite = [SELECT_OBJ stringByAppendingString:[self __selectModelSQLiteWithModelClass:modelClass arguments:arguments]];
+    __block NSString *SQLite = [SELECT_OBJ stringByAppendingString:[self __selectModelSQLiteWithModelClass:modelClass arguments:argumentKeys]];
     SQLite = [NSString stringWithFormat:SQLite,modelClass];
     __block NSMutableArray *objects = [[NSMutableArray alloc] init];
     [_dbQueue inDatabase:^(FMDatabase *db) {
@@ -362,6 +391,7 @@ static HDBManager *_instance = nil;
  */
 - (void)__initial {
     [self setUpDatabaseWithName:@"database"];
+    self.storage = [HDBStorage sharedStorage];
 }
 
 /**
@@ -946,34 +976,6 @@ static HDBManager *_instance = nil;
 }
 
 /**
- * 查询表中所有的Object
- */
-- (NSArray *)queryAllObjectsFromDefaultTable:(NSString *)tableName {
-#warning 这里应该改一下table的名字
-    if ([self __checkTableName:tableName] == NO) {
-        HDBLog(@"Query all objects failed, tableName is nil");
-        return nil;
-    }
-    
-    __block NSString *SQLite = [NSString stringWithFormat:QUERY_ALL_DEFAULT_OBJ,tableName];
-    __block NSMutableArray *objects = [[NSMutableArray alloc] init];
-    [_dbQueue inDatabase:^(FMDatabase *db) {
-        FMResultSet *set = [db executeQuery:SQLite withArgumentsInArray:nil];
-        while ([set next]) {
-            NSData *data = [set dataForColumn:HDB_kObjData];
-            if (data) {
-                id object = [NSKeyedUnarchiver unarchiveObjectWithData:data];
-                if (object) {
-                    [objects addObject:object];
-                }
-            }
-        }
-    }];
-    
-    return objects;
-}
-
-/**
  * 时间戳工具
  */
 - (NSString *)__timeStampWithDate:(NSDate *)date {
@@ -1034,9 +1036,13 @@ static HDBManager *_instance = nil;
 - (void)__addDatabaseQueueWithName:(NSString *)dbName {
     NSString *fileName = [dbName stringByAppendingPathExtension:@"sqlite"];
     NSString *dbPath = [[HDBConfig defaultConfig].path stringByAppendingPathComponent:fileName];
+    if ([[NSFileManager defaultManager] fileExistsAtPath:dbPath] == NO) {
+         [[NSFileManager defaultManager] createFileAtPath:dbPath contents:nil attributes:nil];
+    }
     FMDatabaseQueue *queue = [FMDatabaseQueue databaseQueueWithPath:dbPath];
-    [self __insertDatabaseQueue:queue databaseName:dbName];
-    [self __setupCurrentDatabase:dbName];
+    _dbQueue = queue;
+//    [self __insertDatabaseQueue:queue databaseName:dbName];
+//    [self __setupCurrentDatabase:dbName];
 }
 
 /**
@@ -1053,7 +1059,6 @@ static HDBManager *_instance = nil;
  */
 - (void)__setupCurrentDatabase:(NSString *)dbName {
     HDBLog(@"Set up new database,dbName = %@",dbName);
-    dbName = [@"DatabaseQueue" stringByAppendingString:dbName];
     FMDatabaseQueue *queue = [self __queueWithDatabaseName:dbName];
     _dbQueue = queue;
     _currentDBName = dbName;

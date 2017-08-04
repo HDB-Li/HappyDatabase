@@ -9,6 +9,8 @@
 #import <Foundation/Foundation.h>
 #import "HDBConditionInput.h"
 #import "HDBConfig.h"
+#import "HDBCondition.h"
+#import "HDBConditionGroup.h"
 
 @interface HDBManager : NSObject
 
@@ -90,6 +92,13 @@
 - (BOOL)updateModel:(id<NSCoding>)model oriPrimaryValue:(id)oriPrimaryValue;
 
 #pragma mark - Query
+
+/**
+ * 查询表中所有的Object
+ 
+ @param tableName 表名
+ */
+- (NSArray *)queryAllObjectsFromTable:(NSString *)tableName;
 
 /**
  * 根据PrimaryValue查询一个模型,不存在则返回nil
